@@ -10,10 +10,7 @@ class TransactionModel:
         return list(self.collection.find().sort("date", -1))
 
     def get_transactions_by_month(self, month, year):
-        # Construct date range for the month
         start_date = f"{year}-{month:02d}-01"
-        # Simple logic to get end date, or just filter by string matching if format is strictly YYYY-MM-DD
-        # Using regex for simplicity as date is stored as string "YYYY-MM-DD"
         regex = f"^{year}-{month:02d}"
         return list(self.collection.find({"date": {"$regex": regex}}).sort("date", -1))
 

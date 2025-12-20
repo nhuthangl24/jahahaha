@@ -19,7 +19,7 @@ class CategoryDialog(QDialog):
         self.type_input.addItems(["Thu Nhập", "Chi Tiêu"])
         
         self.icon_input = QLineEdit()
-        self.icon_input.setPlaceholderText("Biểu tượng (emoji, ví dụ: 🍔)")
+        self.icon_input.setPlaceholderText("Biểu tượng")
         
         # Color Picker Button
         self.color_btn = QPushButton()

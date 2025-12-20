@@ -19,7 +19,6 @@ class TransactionController(QObject):
         return self._enrich_transactions(transactions)
 
     def _enrich_transactions(self, transactions):
-        # Helper to add category details to transactions
         for t in transactions:
             if t.get('category_id'):
                 category = self.category_model.get_category_by_id(t['category_id'])

@@ -1,8 +1,7 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                               QPushButton, QSpinBox, QDoubleSpinBox, QProgressBar, QFrame)
+                               QPushButton, QSpinBox, QDoubleSpinBox, QProgressBar, QFrame , QLineEdit)
 from PySide6.QtCore import Qt, QDate
 from app.controllers.budget_controller import BudgetController
-
 class BudgetsView(QWidget):
     def __init__(self, controller: BudgetController):
         super().__init__()
@@ -37,11 +36,9 @@ class BudgetsView(QWidget):
         # Budget Setting
         setting_layout = QHBoxLayout()
         setting_layout.addWidget(QLabel("Ngân Sách Tháng:"))
-        self.budget_input = QDoubleSpinBox()
-        self.budget_input.setRange(0, 1000000000)
-        self.budget_input.setSingleStep(100000)
-        self.budget_input.setSuffix(" ₫")
-        self.budget_input.setDecimals(0)
+        self.budget_input = QLineEdit()
+        self.budget_input.setPlaceholderText("0")
+        self.budget_input.textChanged.connect(self.format_amount)
         
         save_btn = QPushButton("Đặt Ngân Sách")
         save_btn.setProperty("class", "PrimaryButton")
@@ -88,10 +85,33 @@ class BudgetsView(QWidget):
         
         self.refresh_budget()
 
+
+    def format_amount(self, text):
+        if not text:
+            return
+            
+        # Remove commas and non-digits
+        clean_text = ''.join(filter(str.isdigit, text))
+        
+        if clean_text:
+            # Format with commas
+            formatted = "{:,}".format(int(clean_text))
+            
+            if text != formatted:
+                self.budget_input.blockSignals(True)
+                self.budget_input.setText(formatted)
+                # Move cursor to end
+                self.budget_input.setCursorPosition(len(formatted))
+                self.budget_input.blockSignals(False)
+
     def save_budget(self):
         month = self.month_selector.value()
         year = self.year_selector.value()
-        amount = self.budget_input.value()
+        
+        # Lấy giá trị từ QLineEdit và bỏ dấu phẩy
+        amount_text = self.budget_input.text().replace(",", "")
+        amount = float(amount_text or 0)
+        
         self.controller.set_budget(month, year, amount)
 
     def refresh_budget(self):
@@ -100,7 +120,9 @@ class BudgetsView(QWidget):
         
         data = self.controller.get_budget_status(month, year)
         
-        self.budget_input.setValue(data['total_budget'])
+        # Hiển thị lại giá trị có dấu phẩy
+        self.budget_input.setText(f"{data['total_budget']:,.0f}")
+        
         self.spent_label.setText(f"Đã Chi: {data['total_spent']:,.0f} ₫")
         self.remaining_label.setText(f"Còn Lại: {data['remaining']:,.0f} ₫")
         
