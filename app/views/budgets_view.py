@@ -56,6 +56,9 @@ class BudgetsView(QWidget):
         self.overview_card.setProperty("class", "Card")
         card_layout = QVBoxLayout(self.overview_card)
         
+        self.total_budget_label = QLabel("Tổng Ngân Sách: 0 ₫")
+        self.total_budget_label.setStyleSheet("font-size: 18px; color: #64B5F6;")
+        
         self.spent_label = QLabel("Đã Chi: 0 ₫")
         self.spent_label.setStyleSheet("font-size: 18px;")
         self.remaining_label = QLabel("Còn Lại: 0 ₫")
@@ -76,6 +79,7 @@ class BudgetsView(QWidget):
             }
         """)
         
+        card_layout.addWidget(self.total_budget_label)
         card_layout.addWidget(self.spent_label)
         card_layout.addWidget(self.remaining_label)
         card_layout.addWidget(self.progress_bar)
@@ -90,11 +94,9 @@ class BudgetsView(QWidget):
         if not text:
             return
             
-        # Remove commas and non-digits
         clean_text = ''.join(filter(str.isdigit, text))
         
         if clean_text:
-            # Format with commas
             formatted = "{:,}".format(int(clean_text))
             
             if text != formatted:
@@ -108,11 +110,15 @@ class BudgetsView(QWidget):
         month = self.month_selector.value()
         year = self.year_selector.value()
         
-        # Lấy giá trị từ QLineEdit và bỏ dấu phẩy
         amount_text = self.budget_input.text().replace(",", "")
-        amount = float(amount_text or 0)
+        total_amount = float(amount_text or 0)
         
-        self.controller.set_budget(month, year, amount)
+        # Calculate base budget by subtracting income
+        # We use the income stored from the last refresh
+        current_income = getattr(self, 'current_income', 0)
+        base_budget = total_amount - current_income
+        
+        self.controller.set_budget(month, year, base_budget)
 
     def refresh_budget(self):
         month = self.month_selector.value()
@@ -120,8 +126,14 @@ class BudgetsView(QWidget):
         
         data = self.controller.get_budget_status(month, year)
         
-        # Hiển thị lại giá trị có dấu phẩy
-        self.budget_input.setText(f"{data['total_budget']:,.0f}")
+        # Store current income for save_budget calculation
+        self.current_income = data['total_income']
+        
+        # Display Total Effective Budget (Base + Income) in the input
+        total_effective = data['total_budget'] + data['total_income']
+        self.budget_input.setText(f"{total_effective:,.0f}")
+        
+        self.total_budget_label.setText(f"Tổng Ngân Sách (Gồm Thu Nhập): {total_effective:,.0f} ₫")
         
         self.spent_label.setText(f"Đã Chi: {data['total_spent']:,.0f} ₫")
         self.remaining_label.setText(f"Còn Lại: {data['remaining']:,.0f} ₫")

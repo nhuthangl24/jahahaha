@@ -132,7 +132,7 @@ class CategoriesView(QWidget):
             card = self.create_category_card(cat)
             grid.addWidget(card, row, col)
             col += 1
-            if col > 3: # 4 columns
+            if col > 3: 
                 col = 0
                 row += 1
         

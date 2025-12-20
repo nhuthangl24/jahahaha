@@ -1,0 +1,2 @@
+date,amount,type,category_id,payment_method,note,tags
+2025-12-21,1000000.0,expense,6946d7de0fa920c1a065b64a,cash,hehe,tag1

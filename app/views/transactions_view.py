@@ -232,15 +232,41 @@ class TransactionsView(QWidget):
             # Actions
             action_widget = QWidget()
             action_layout = QHBoxLayout(action_widget)
-            action_layout.setContentsMargins(0, 0, 0, 0)
+            action_layout.setContentsMargins(4, 2, 4, 2)
+            action_layout.setSpacing(8)
             
-            edit_btn = QPushButton("Sửa")
-            edit_btn.setProperty("class", "SecondaryButton")
+            edit_btn = QPushButton("✏️")
+            edit_btn.setToolTip("Sửa")
+            edit_btn.setCursor(Qt.PointingHandCursor)
+            edit_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #2C3E50;
+                    border: 1px solid #34495E;
+                    border-radius: 4px;
+                    padding: 4px 8px;
+                    font-size: 14px;
+                }
+                QPushButton:hover {
+                    background-color: #34495E;
+                }
+            """)
             edit_btn.clicked.connect(lambda checked, tr=t: self.open_edit_dialog(tr))
             
-            del_btn = QPushButton("X")
-            del_btn.setProperty("class", "DangerButton")
-            del_btn.setFixedWidth(30)
+            del_btn = QPushButton("🗑️")
+            del_btn.setToolTip("Xóa")
+            del_btn.setCursor(Qt.PointingHandCursor)
+            del_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #C0392B;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 4px 8px;
+                    font-size: 14px;
+                }
+                QPushButton:hover {
+                    background-color: #E74C3C;
+                }
+            """)
             del_btn.clicked.connect(lambda checked, tr=t: self.controller.delete_transaction(tr['_id']))
             
             action_layout.addWidget(edit_btn)

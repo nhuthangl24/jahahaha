@@ -20,6 +20,7 @@ class BudgetController(QObject):
         
         return {
             "total_budget": total_budget,
+            "total_income": total_income,
             "total_spent": total_spent,
             "remaining": total_budget + total_income - total_spent,
             "percentage": (total_spent / (total_budget + total_income) * 100) if (total_budget + total_income) > 0 else 0
