@@ -6,7 +6,7 @@ class DatabaseService:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(DatabaseService, cls).__new__(cls)
-            cls._instance.client = MongoClient('dan db vao day hehe')
+            cls._instance.client = MongoClient('mongodb+srv://luunhuthang2402:luunhuthang2402@learnnoaz.nwz1byp.mongodb.net/?appName=learnnoaz')
             cls._instance.db = cls._instance.client['finance_app']
         return cls._instance
 

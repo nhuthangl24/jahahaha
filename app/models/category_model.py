@@ -30,3 +30,6 @@ class CategoryModel:
         if isinstance(category_id, str):
             category_id = ObjectId(category_id)
         return self.collection.find_one({"_id": category_id})
+
+    def search_categories(self, name):
+        return list(self.collection.find({"name": {"$regex": name, "$options": "i"}}))

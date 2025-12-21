@@ -14,6 +14,34 @@ class TransactionModel:
         regex = f"^{year}-{month:02d}"
         return list(self.collection.find({"date": {"$regex": regex}}).sort("date", -1))
 
+    def filter_transactions(self, start_date=None, end_date=None, category_ids=None, note=None):
+        query = {}
+        
+        if start_date and end_date:
+            query['date'] = {"$gte": start_date, "$lte": end_date}
+        elif start_date:
+            query['date'] = {"$gte": start_date}
+        elif end_date:
+            query['date'] = {"$lte": end_date}
+            
+        if category_ids is not None:
+            if isinstance(category_ids, list):
+                if category_ids:
+                    query['category_id'] = {"$in": [ObjectId(cid) for cid in category_ids]}
+                else:
+                    # If category_ids is an empty list (meaning search found no categories), 
+                    # we should probably return no results if the user specifically asked for a category.
+                    # However, if category_ids is None, we ignore the filter.
+                    # Here it is not None but empty, so we force a no-match.
+                    return [] 
+            else:
+                query['category_id'] = ObjectId(category_ids)
+                
+        if note:
+            query['note'] = {"$regex": note, "$options": "i"}
+            
+        return list(self.collection.find(query).sort("date", -1))
+
     def add_transaction(self, date, amount, type_, category_id, payment_method, note, tags=None):
         transaction = {
             "date": date,

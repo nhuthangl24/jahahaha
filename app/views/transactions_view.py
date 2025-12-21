@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                                QPushButton, QTableWidget, QTableWidgetItem, 
                                QHeaderView, QDialog, QFormLayout, QLineEdit, 
-                               QComboBox, QDateEdit, QRadioButton, QButtonGroup, QMessageBox)
+                               QComboBox, QDateEdit, QRadioButton, QButtonGroup, QMessageBox, QCheckBox)
 from PySide6.QtCore import Qt, QDate
 from app.controllers.transaction_controller import TransactionController
 
@@ -179,18 +179,69 @@ class TransactionsView(QWidget):
         header_layout.addWidget(add_btn)
         self.layout.addLayout(header_layout)
         
+        # Filter Section
+        filter_layout = QHBoxLayout()
+        
+        self.filter_date_cb = QCheckBox("Lọc ngày")
+        self.filter_date_cb.toggled.connect(self.toggle_date_filters)
+        
+        self.start_date_filter = QDateEdit()
+        self.start_date_filter.setCalendarPopup(True)
+        self.start_date_filter.setDisplayFormat("dd/MM/yyyy")
+        self.start_date_filter.setDate(QDate.currentDate().addMonths(-1))
+        self.start_date_filter.setEnabled(False)
+        self.start_date_filter.dateChanged.connect(self.apply_filter)
+
+        self.end_date_filter = QDateEdit()
+        self.end_date_filter.setCalendarPopup(True)
+        self.end_date_filter.setDisplayFormat("dd/MM/yyyy")
+        self.end_date_filter.setDate(QDate.currentDate())
+        self.end_date_filter.setEnabled(False)
+        self.end_date_filter.dateChanged.connect(self.apply_filter)
+        
+        self.category_filter = QLineEdit()
+        self.category_filter.setPlaceholderText("Tên danh mục...")
+        self.category_filter.textChanged.connect(self.apply_filter)
+        
+        self.note_filter = QLineEdit()
+        self.note_filter.setPlaceholderText("Ghi chú...")
+        self.note_filter.textChanged.connect(self.apply_filter)
+        
+        clear_filter_btn = QPushButton("Xóa Lọc")
+        clear_filter_btn.clicked.connect(self.clear_filter)
+        
+        filter_layout.addWidget(self.filter_date_cb)
+        filter_layout.addWidget(self.start_date_filter)
+        filter_layout.addWidget(QLabel("-"))
+        filter_layout.addWidget(self.end_date_filter)
+        filter_layout.addWidget(self.category_filter)
+        filter_layout.addWidget(self.note_filter)
+        filter_layout.addWidget(clear_filter_btn)
+        
+        self.layout.addLayout(filter_layout)
+        
         # Table
         self.table = QTableWidget()
         self.table.setColumnCount(7)
         self.table.setHorizontalHeaderLabels(["Ngày", "Loại", "Danh Mục", "Số Tiền", "Thanh Toán", "Ghi Chú", "Hành Động"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.Fixed)
+        self.table.setColumnWidth(6, 120)
         self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(50)
         self.layout.addWidget(self.table)
         
         self.refresh_transactions()
 
     def refresh_transactions(self):
-        transactions = self.controller.get_all_transactions()
+        # Check if filters are active
+        if self.filter_date_cb.isChecked() or self.category_filter.text().strip() or self.note_filter.text().strip():
+            self.apply_filter()
+        else:
+            transactions = self.controller.get_all_transactions()
+            self.update_table(transactions)
+
+    def update_table(self, transactions):
         self.table.setRowCount(len(transactions))
         
         payment_map = {
@@ -232,19 +283,20 @@ class TransactionsView(QWidget):
             # Actions
             action_widget = QWidget()
             action_layout = QHBoxLayout(action_widget)
-            action_layout.setContentsMargins(4, 2, 4, 2)
-            action_layout.setSpacing(8)
+            action_layout.setContentsMargins(2, 2, 2, 2)
+            action_layout.setSpacing(4)
             
-            edit_btn = QPushButton("✏️")
+            edit_btn = QPushButton("Sửa")
             edit_btn.setToolTip("Sửa")
             edit_btn.setCursor(Qt.PointingHandCursor)
+            edit_btn.setFixedSize(50, 28)
             edit_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #2C3E50;
+                    color: white;
                     border: 1px solid #34495E;
                     border-radius: 4px;
-                    padding: 4px 8px;
-                    font-size: 14px;
+                    font-size: 12px;
                 }
                 QPushButton:hover {
                     background-color: #34495E;
@@ -252,16 +304,17 @@ class TransactionsView(QWidget):
             """)
             edit_btn.clicked.connect(lambda checked, tr=t: self.open_edit_dialog(tr))
             
-            del_btn = QPushButton("🗑️")
+            del_btn = QPushButton("Xóa")
             del_btn.setToolTip("Xóa")
             del_btn.setCursor(Qt.PointingHandCursor)
+            del_btn.setFixedSize(50, 28)
             del_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #C0392B;
+                    color: white;
                     border: none;
                     border-radius: 4px;
-                    padding: 4px 8px;
-                    font-size: 14px;
+                    font-size: 12px;
                 }
                 QPushButton:hover {
                     background-color: #E74C3C;
@@ -272,6 +325,31 @@ class TransactionsView(QWidget):
             action_layout.addWidget(edit_btn)
             action_layout.addWidget(del_btn)
             self.table.setCellWidget(row, 6, action_widget)
+
+    def toggle_date_filters(self, checked):
+        self.start_date_filter.setEnabled(checked)
+        self.end_date_filter.setEnabled(checked)
+        self.apply_filter()
+
+    def apply_filter(self):
+        start_date = None
+        end_date = None
+        
+        if self.filter_date_cb.isChecked():
+            start_date = self.start_date_filter.date().toString("yyyy-MM-dd")
+            end_date = self.end_date_filter.date().toString("yyyy-MM-dd")
+            
+        category_name = self.category_filter.text().strip()
+        note = self.note_filter.text().strip()
+        
+        transactions = self.controller.filter_transactions(start_date, end_date, category_name, note)
+        self.update_table(transactions)
+
+    def clear_filter(self):
+        self.filter_date_cb.setChecked(False)
+        self.category_filter.clear()
+        self.note_filter.clear()
+        self.refresh_transactions()
 
     def open_add_dialog(self):
         dialog = TransactionDialog(self.controller, self)

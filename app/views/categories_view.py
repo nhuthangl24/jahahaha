@@ -16,7 +16,7 @@ class CategoryDialog(QDialog):
         
         self.name_input = QLineEdit()
         self.type_input = QComboBox()
-        self.type_input.addItems(["Thu Nhập", "Chi Tiêu"])
+        self.type_input.addItems(["Thu Nhập", "Chi Tiêu" ])
         
         self.icon_input = QLineEdit()
         self.icon_input.setPlaceholderText("Biểu tượng")
