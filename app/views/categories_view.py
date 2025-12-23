@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                                QPushButton, QLineEdit, QComboBox, QDialog, 
-                               QFormLayout, QScrollArea, QFrame, QGridLayout, QColorDialog)
+                               QFormLayout, QScrollArea, QFrame, QGridLayout, QColorDialog, QMessageBox)
 from PySide6.QtCore import Qt
 from app.controllers.category_controller import CategoryController
 
@@ -16,7 +16,7 @@ class CategoryDialog(QDialog):
         
         self.name_input = QLineEdit()
         self.type_input = QComboBox()
-        self.type_input.addItems(["Thu Nhập", "Chi Tiêu" ])
+        self.type_input.addItems(["Thu Nhập", "Chi Tiêu",  "Đi vay / Cho vay" ])
         
         self.icon_input = QLineEdit()
         self.icon_input.setPlaceholderText("Biểu tượng")
@@ -29,7 +29,12 @@ class CategoryDialog(QDialog):
         
         if category:
             self.name_input.setText(category.get('name', ''))
-            type_text = "Thu Nhập" if category.get('type') == 'income' else "Chi Tiêu"
+            if(category.get('type') == 'income'):
+                type_text = "Thu Nhập"
+            elif(category.get('type') == 'incurdebt' ):
+                type_text = "Đi vay / Cho vay"
+            else :
+                type_text = "Chi Tiêu" 
             self.type_input.setCurrentText(type_text)
             self.icon_input.setText(category.get('icon', ''))
             
@@ -41,7 +46,7 @@ class CategoryDialog(QDialog):
         btn_layout = QHBoxLayout()
         save_btn = QPushButton("Lưu")
         save_btn.setProperty("class", "PrimaryButton")
-        save_btn.clicked.connect(self.accept)
+        save_btn.clicked.connect(self.validate_and_accept)
         cancel_btn = QPushButton("Hủy")
         cancel_btn.setProperty("class", "SecondaryButton")
         cancel_btn.clicked.connect(self.reject)
@@ -49,6 +54,13 @@ class CategoryDialog(QDialog):
         btn_layout.addWidget(cancel_btn)
         btn_layout.addWidget(save_btn)
         layout.addRow(btn_layout)
+
+    def validate_and_accept(self):
+        if not self.name_input.text().strip():
+            QMessageBox.warning(self, "Lỗi", "Vui lòng nhập tên danh mục.")
+            self.name_input.setFocus()
+            return
+        self.accept()
 
     def pick_color(self):
         color = QColorDialog.getColor(initial=Qt.white, parent=self, title="Chọn Màu")
@@ -60,9 +72,16 @@ class CategoryDialog(QDialog):
         self.color_btn.setStyleSheet(f"background-color: {self.selected_color}; border: 1px solid #555; border-radius: 4px;")
 
     def get_data(self):
+        type_text = self.type_input.currentText()
+        if type_text == "Thu Nhập":
+            type_val = "income"
+        elif type_text == "Đi vay / Cho vay":
+            type_val = "incurdebt"
+        else:
+            type_val = "expense"
         return {
             "name": self.name_input.text(),
-            "type_": "income" if self.type_input.currentText() == "Thu Nhập" else "expense",
+            "type_": type_val,
             "icon": self.icon_input.text(),
             "color": self.selected_color
         }
@@ -112,11 +131,14 @@ class CategoriesView(QWidget):
         # Group by type
         income_cats = [c for c in categories if c['type'] == 'income']
         expense_cats = [c for c in categories if c['type'] == 'expense']
+        incurdebt_cats = [c for c in categories if c['type'] == 'incurdebt']
         
         if income_cats:
             self.add_category_section("Thu Nhập", income_cats)
         if expense_cats:
             self.add_category_section("Chi Tiêu", expense_cats)
+        if incurdebt_cats:
+            self.add_category_section("Đi vay / Cho vay", incurdebt_cats)
 
     def add_category_section(self, title, categories):
         section_label = QLabel(title)

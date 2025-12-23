@@ -41,13 +41,14 @@ def main():
     import_export_view = ImportExportView()
     
     # Setup Main Window
+    
     window = MainWindow()
     window.set_view(0, dashboard_view)
     window.set_view(1, transactions_view)
     window.set_view(2, categories_view)
     window.set_view(3, budgets_view)
     window.set_view(4, import_export_view)
-    
+   
     # Connect signals for cross-view updates
     # When transactions change, update dashboard and budget
     transaction_controller.transactions_changed.connect(dashboard_view.refresh_dashboard)
@@ -60,8 +61,14 @@ def main():
     # When budget changes, update dashboard
     budget_controller.budget_changed.connect(dashboard_view.refresh_dashboard)
     
+    # Ensure Dashboard is shown first
+    window.switch_view(0)
+    if "Bảng Điều Khiển" in window.nav_buttons:
+        window.nav_buttons["Bảng Điều Khiển"].setChecked(True)
+
     window.show()
     sys.exit(app.exec())
+
 
 if __name__ == "__main__":
     main()

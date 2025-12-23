@@ -19,13 +19,16 @@ class TransactionDialog(QDialog):
         self.type_group = QButtonGroup(self)
         self.income_radio = QRadioButton("Thu nhập")
         self.expense_radio = QRadioButton("Chi tiêu")
+        self.incurdebt = QRadioButton("Đi vay / Cho vay")
         self.expense_radio.setChecked(True)
         self.type_group.addButton(self.income_radio)
         self.type_group.addButton(self.expense_radio)
+        self.type_group.addButton(self.incurdebt)
         
         type_layout = QHBoxLayout()
         type_layout.addWidget(self.income_radio)
         type_layout.addWidget(self.expense_radio)
+        type_layout.addWidget(self.incurdebt)
         layout.addRow("Loại:", type_layout)
         
         # Date
@@ -48,6 +51,7 @@ class TransactionDialog(QDialog):
         
         # Connect radio buttons to update categories
         self.income_radio.toggled.connect(self.update_categories)
+        self.incurdebt.toggled.connect(self.update_categories)
         layout.addRow("Danh Mục:", self.category_input)
         
         # Payment Method
@@ -71,6 +75,8 @@ class TransactionDialog(QDialog):
         if transaction:
             if transaction['type'] == 'income':
                 self.income_radio.setChecked(True)
+            elif transaction['type'] == 'incurdebt': 
+                self.incurdebt.setChecked(True)
             else:
                 self.expense_radio.setChecked(True)
             
@@ -97,7 +103,7 @@ class TransactionDialog(QDialog):
         btn_layout = QHBoxLayout()
         self.save_btn = QPushButton("Lưu")
         self.save_btn.setProperty("class", "PrimaryButton")
-        self.save_btn.clicked.connect(self.accept)
+        self.save_btn.clicked.connect(self.validate_and_accept)
         cancel_btn = QPushButton("Hủy")
         cancel_btn.setProperty("class", "SecondaryButton")
         cancel_btn.clicked.connect(self.reject)
@@ -124,8 +130,34 @@ class TransactionDialog(QDialog):
                 self.amount_input.setCursorPosition(len(formatted))
                 self.amount_input.blockSignals(False)
 
+    def validate_and_accept(self):
+        # Validate Amount
+        amount_text = self.amount_input.text().replace(",", "")
+        try:
+            amount = float(amount_text)
+            if amount <= 0:
+                raise ValueError
+        except ValueError:
+            QMessageBox.warning(self, "Lỗi", "Vui lòng nhập số tiền hợp lệ (lớn hơn 0).")
+            self.amount_input.setFocus()
+            return
+
+        # Validate Category
+        if not self.category_input.currentData():
+            QMessageBox.warning(self, "Lỗi", "Vui lòng chọn danh mục.")
+            self.category_input.setFocus()
+            return
+
+        self.accept()
+
     def update_categories(self):
-        current_type = "income" if self.income_radio.isChecked() else "expense"
+       # current_type = "income" if self.income_radio.isChecked() else "expense"
+        if self.income_radio.isChecked():
+            current_type = 'income'
+        elif self.incurdebt.isChecked():
+            current_type = 'incurdebt'
+        else:
+            current_type = 'expense'
         self.category_input.clear()
         found = False
         for cat in self.categories:
@@ -138,13 +170,18 @@ class TransactionDialog(QDialog):
             self.category_input.setToolTip("Vui lòng thêm danh mục ở tab Danh Mục trước")
 
     def get_data(self):
-        # Strip commas from amount
+      
+        if self.income_radio.isChecked():
+            type_radio = 'income'
+        elif self.incurdebt.isChecked():
+            type_radio = 'incurdebt'
+        else:
+            type_radio = 'expense'
         amount_text = self.amount_input.text().replace(",", "")
-        
         return {
             "date": self.date_input.date().toString("yyyy-MM-dd"),
             "amount": float(amount_text or 0),
-            "type": "income" if self.income_radio.isChecked() else "expense",
+            "type": type_radio,
             "category_id": self.category_input.currentData(),
             "payment_method": self.payment_input.currentData(),
             "note": self.note_input.text(),
@@ -206,7 +243,14 @@ class TransactionsView(QWidget):
         self.note_filter = QLineEdit()
         self.note_filter.setPlaceholderText("Ghi chú...")
         self.note_filter.textChanged.connect(self.apply_filter)
-        
+      
+
+
+        self.tags_filter = QLineEdit()
+        self.tags_filter.setPlaceholderText("Tags...")
+        self.tags_filter.textChanged.connect(self.apply_filter)
+
+
         clear_filter_btn = QPushButton("Xóa Lọc")
         clear_filter_btn.clicked.connect(self.clear_filter)
         
@@ -216,14 +260,15 @@ class TransactionsView(QWidget):
         filter_layout.addWidget(self.end_date_filter)
         filter_layout.addWidget(self.category_filter)
         filter_layout.addWidget(self.note_filter)
+        #filter_layout.addWidget(self.tags_filter)
         filter_layout.addWidget(clear_filter_btn)
         
         self.layout.addLayout(filter_layout)
         
         # Table
         self.table = QTableWidget()
-        self.table.setColumnCount(7)
-        self.table.setHorizontalHeaderLabels(["Ngày", "Loại", "Danh Mục", "Số Tiền", "Thanh Toán", "Ghi Chú", "Hành Động"])
+        self.table.setColumnCount(8)
+        self.table.setHorizontalHeaderLabels(["Ngày", "Loại", "Danh Mục", "Số Tiền", "Thanh Toán",  "Tags","Ghi Chú", "Hành Động" ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.Fixed)
         self.table.setColumnWidth(6, 120)
@@ -234,7 +279,6 @@ class TransactionsView(QWidget):
         self.refresh_transactions()
 
     def refresh_transactions(self):
-        # Check if filters are active
         if self.filter_date_cb.isChecked() or self.category_filter.text().strip() or self.note_filter.text().strip():
             self.apply_filter()
         else:
@@ -257,7 +301,14 @@ class TransactionsView(QWidget):
             self.table.setItem(row, 0, QTableWidgetItem(date_obj.toString("dd/MM/yyyy")))
             
             # Type
-            type_str = "Thu nhập" if t['type'] == 'income' else "Chi tiêu"
+           # type_str = "Thu nhập" if t['type'] == 'income' else "Chi tiêu"
+            if t['type'] == 'income':
+                type_str = "Thu nhập" 
+            elif t['type'] == 'incurdebt':
+                type_str = "Đi vay / Cho vay" 
+            else :
+                type_str = "Chi tiêu" 
+
             self.table.setItem(row, 1, QTableWidgetItem(type_str))
             
             # Category
@@ -267,18 +318,25 @@ class TransactionsView(QWidget):
             # Amount
             amount_str = f"{t['amount']:,.0f} ₫"
             amount_item = QTableWidgetItem(amount_str)
-            if t['type'] == 'income':
+            if (t['type'] == 'income'):
                 amount_item.setForeground(Qt.green)
+            elif (t['type'] == 'incurdebt'):
+                amount_item.setForeground(Qt.blue)
             else:
                 amount_item.setForeground(Qt.red)
+                
             self.table.setItem(row, 3, amount_item)
             
             # Payment Method
             payment_display = payment_map.get(t['payment_method'], t['payment_method'])
             self.table.setItem(row, 4, QTableWidgetItem(payment_display))
-            
+            #Tags
+            tags_list = t.get('tags', [])
+            tags_str = ", ".join(tags_list) if isinstance(tags_list, list) else str(tags_list)
+            self.table.setItem(row, 5, QTableWidgetItem(tags_str))
             # Note
-            self.table.setItem(row, 5, QTableWidgetItem(t.get('note', '')))
+            self.table.setItem(row, 6, QTableWidgetItem(t.get('note', '')))
+          
             
             # Actions
             action_widget = QWidget()
@@ -289,7 +347,7 @@ class TransactionsView(QWidget):
             edit_btn = QPushButton("Sửa")
             edit_btn.setToolTip("Sửa")
             edit_btn.setCursor(Qt.PointingHandCursor)
-            edit_btn.setFixedSize(50, 28)
+            edit_btn.setFixedSize(60, 30)
             edit_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #2C3E50;
@@ -307,7 +365,7 @@ class TransactionsView(QWidget):
             del_btn = QPushButton("Xóa")
             del_btn.setToolTip("Xóa")
             del_btn.setCursor(Qt.PointingHandCursor)
-            del_btn.setFixedSize(50, 28)
+            del_btn.setFixedSize(60, 30)
             del_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #C0392B;
@@ -324,7 +382,7 @@ class TransactionsView(QWidget):
             
             action_layout.addWidget(edit_btn)
             action_layout.addWidget(del_btn)
-            self.table.setCellWidget(row, 6, action_widget)
+            self.table.setCellWidget(row, 7, action_widget)
 
     def toggle_date_filters(self, checked):
         self.start_date_filter.setEnabled(checked)
@@ -341,14 +399,16 @@ class TransactionsView(QWidget):
             
         category_name = self.category_filter.text().strip()
         note = self.note_filter.text().strip()
+        tags = self.tags_filter.text().strip()
         
-        transactions = self.controller.filter_transactions(start_date, end_date, category_name, note)
+        transactions = self.controller.filter_transactions(start_date, end_date, category_name, note , tags)
         self.update_table(transactions)
 
     def clear_filter(self):
         self.filter_date_cb.setChecked(False)
         self.category_filter.clear()
         self.note_filter.clear()
+        self.tags_filter.clear()
         self.refresh_transactions()
 
     def open_add_dialog(self):

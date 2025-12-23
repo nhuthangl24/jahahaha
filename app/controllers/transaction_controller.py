@@ -18,13 +18,13 @@ class TransactionController(QObject):
         transactions = self.model.get_transactions_by_month(month, year)
         return self._enrich_transactions(transactions)
 
-    def filter_transactions(self, start_date=None, end_date=None, category_name=None, note=None):
+    def filter_transactions(self, start_date=None, end_date=None, category_name=None, note=None, tags = None):
         category_ids = None
         if category_name:
             categories = self.category_model.search_categories(category_name)
             category_ids = [c['_id'] for c in categories]
             
-        transactions = self.model.filter_transactions(start_date, end_date, category_ids, note)
+        transactions = self.model.filter_transactions(start_date, end_date, category_ids, note , tags)
         return self._enrich_transactions(transactions)
 
     def _enrich_transactions(self, transactions):

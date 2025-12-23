@@ -1,10 +1,76 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                               QPushButton, QSpinBox, QFrame, QGridLayout, QTableWidget, QTableWidgetItem, QHeaderView)
+                               QPushButton, QSpinBox, QFrame, QGridLayout, QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget)
 from PySide6.QtCore import Qt, QDate
 from app.controllers.dashboard_controller import DashboardController
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
+
+class CategorySummaryWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 10, 0, 0)
+        
+        # Chart
+        self.figure = Figure(figsize=(5, 4), dpi=100, facecolor='#1E1E1E')
+        self.canvas = FigureCanvas(self.figure)
+        self.canvas.setStyleSheet("background-color: #1E1E1E; border-radius: 12px;")
+        layout.addWidget(self.canvas, 2)
+        
+        # Table
+        self.table = QTableWidget()
+        self.table.setColumnCount(2)
+        self.table.setHorizontalHeaderLabels(["Danh Mục", "Số Tiền"])
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table.verticalHeader().setVisible(False)
+        self.table.setAlternatingRowColors(True)
+        self.table.setStyleSheet("QTableWidget { border: none; background-color: #1E1E1E; }")
+        layout.addWidget(self.table, 1)
+
+    def update_data(self, categories, title_pie, title_bar, bar_color='#64B5F6'):
+        self.figure.clear()
+        
+        # Pie Chart (Left)
+        ax1 = self.figure.add_subplot(121)
+        ax1.set_facecolor('#1E1E1E')
+        
+        # Bar Chart (Right)
+        ax2 = self.figure.add_subplot(122)
+        ax2.set_facecolor('#1E1E1E')
+        
+        cat_names = [c['name'] for c in categories[:5]]
+        amounts = [c['amount'] for c in categories[:5]]
+        
+        if cat_names:
+            # Pie Chart
+            wedges, texts, autotexts = ax1.pie(amounts, labels=cat_names, autopct='%1.1f%%', startangle=90, 
+                                              textprops=dict(color="w"))
+            ax1.set_title(title_pie, color='#FFFFFF')
+            plt.setp(autotexts, size=8, weight="bold")
+            plt.setp(texts, size=9)
+            
+            # Bar Chart
+            bars = ax2.bar(cat_names, amounts, color=bar_color)
+            ax2.tick_params(axis='x', colors='#AAAAAA', rotation=45, labelsize=8)
+            ax2.tick_params(axis='y', colors='#AAAAAA', labelsize=8)
+            ax2.spines['bottom'].set_color('#333333')
+            ax2.spines['top'].set_color('#333333') 
+            ax2.spines['right'].set_color('#333333')
+            ax2.spines['left'].set_color('#333333')
+            ax2.set_title(title_bar, color='#FFFFFF')
+        else:
+            ax1.text(0.5, 0.5, "Không có dữ liệu", ha='center', va='center', color='#AAAAAA')
+            ax2.text(0.5, 0.5, "Không có dữ liệu", ha='center', va='center', color='#AAAAAA')
+            
+        self.figure.tight_layout()
+        self.canvas.draw()
+        
+        # Update Table
+        self.table.setRowCount(len(categories))
+        for row, cat in enumerate(categories):
+            self.table.setItem(row, 0, QTableWidgetItem(f"{cat['icon']} {cat['name']}"))
+            self.table.setItem(row, 1, QTableWidgetItem(f"{cat['amount']:,.0f} ₫"))
 
 class DashboardView(QWidget):
     def __init__(self, controller: DashboardController):
@@ -54,24 +120,23 @@ class DashboardView(QWidget):
         self.metrics_layout.addWidget(self.budget_card)
         self.layout.addLayout(self.metrics_layout)
         
-        # Charts & Tables Area
-        content_layout = QVBoxLayout()
+        # Tabs for Charts
+        self.tabs = QTabWidget()
+        self.tabs.setStyleSheet("""
+            QTabWidget::pane { border: 0; }
+            QTabBar::tab { background: #333; color: #AAA; padding: 8px 16px; border-top-left-radius: 4px; border-top-right-radius: 4px; }
+            QTabBar::tab:selected { background: #1E1E1E; color: #FFF; font-weight: bold; }
+        """)
         
-        # Chart
-        self.figure = Figure(figsize=(5, 4), dpi=100, facecolor='#1E1E1E')
-        self.canvas = FigureCanvas(self.figure)
-        self.canvas.setStyleSheet("background-color: #1E1E1E; border-radius: 12px;")
-        content_layout.addWidget(self.canvas, 2)
+        self.expense_tab = CategorySummaryWidget()
+        self.income_tab = CategorySummaryWidget()
+        self.debt_tab = CategorySummaryWidget()
         
-        # Top Categories Table
-        self.cat_table = QTableWidget()
-        self.cat_table.setColumnCount(2)
-        self.cat_table.setHorizontalHeaderLabels(["Danh Mục", "Số Tiền"])
-        self.cat_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.cat_table.verticalHeader().setVisible(False)
-        content_layout.addWidget(self.cat_table, 1)
+        self.tabs.addTab(self.expense_tab, "Chi Tiêu")
+        self.tabs.addTab(self.income_tab, "Thu Nhập")
+        self.tabs.addTab(self.debt_tab, "Đi vay / Cho vay")
         
-        self.layout.addLayout(content_layout)
+        self.layout.addWidget(self.tabs)
         
         self.refresh_dashboard()
 
@@ -113,46 +178,7 @@ class DashboardView(QWidget):
         
         self.update_metric_card(self.budget_card, f"{data['remaining_budget']:,.0f} ₫")
         
-        # Update Chart
-        self.figure.clear()
-        
-        # Pie Chart (Left)
-        ax1 = self.figure.add_subplot(121)
-        ax1.set_facecolor('#1E1E1E')
-        
-        # Bar Chart (Right)
-        ax2 = self.figure.add_subplot(122)
-        ax2.set_facecolor('#1E1E1E')
-        
-        categories = [c['name'] for c in data['categories'][:5]]
-        amounts = [c['amount'] for c in data['categories'][:5]]
-        
-        if categories:
-            # Pie Chart
-            wedges, texts, autotexts = ax1.pie(amounts, labels=categories, autopct='%1.1f%%', startangle=90, 
-                                              textprops=dict(color="w"))
-            ax1.set_title("Tỷ Lệ Chi Tiêu", color='#FFFFFF')
-            plt.setp(autotexts, size=8, weight="bold")
-            plt.setp(texts, size=9)
-            
-            # Bar Chart
-            bars = ax2.bar(categories, amounts, color='#64B5F6')
-            ax2.tick_params(axis='x', colors='#AAAAAA', rotation=45, labelsize=8)
-            ax2.tick_params(axis='y', colors='#AAAAAA', labelsize=8)
-            ax2.spines['bottom'].set_color('#333333')
-            ax2.spines['top'].set_color('#333333') 
-            ax2.spines['right'].set_color('#333333')
-            ax2.spines['left'].set_color('#333333')
-            ax2.set_title("Chi Tiêu Theo Danh Mục", color='#FFFFFF')
-        else:
-            ax1.text(0.5, 0.5, "Không có dữ liệu", ha='center', va='center', color='#AAAAAA')
-            ax2.text(0.5, 0.5, "Không có dữ liệu", ha='center', va='center', color='#AAAAAA')
-            
-        self.figure.tight_layout()
-        self.canvas.draw()
-        
-        # Update Table
-        self.cat_table.setRowCount(len(data['categories']))
-        for row, cat in enumerate(data['categories']):
-            self.cat_table.setItem(row, 0, QTableWidgetItem(f"{cat['icon']} {cat['name']}"))
-            self.cat_table.setItem(row, 1, QTableWidgetItem(f"{cat['amount']:,.0f} ₫"))
+        # Update Tabs
+        self.expense_tab.update_data(data['expense_categories'], "Tỷ Lệ Chi Tiêu", "Chi Tiêu Theo Danh Mục", "#EF5350")
+        self.income_tab.update_data(data['income_categories'], "Tỷ Lệ Thu Nhập", "Thu Nhập Theo Danh Mục", "#66BB6A")
+        self.debt_tab.update_data(data['debt_categories'], "Tỷ Lệ Vay/Nợ", "Vay/Nợ Theo Danh Mục", "#42A5F5")

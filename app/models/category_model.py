@@ -10,7 +10,7 @@ class CategoryModel:
 
     def get_categories_by_type(self, type_):
         return list(self.collection.find({"type": type_}))
-
+        
     def add_category(self, name, type_, icon, color):
         category = {
             "name": name,
